@@ -22,6 +22,7 @@
  */
 #include "mmu.h"
 
+#include <stdio.h>
 #include <string.h>
 
 #include "cartridge.h"
@@ -150,7 +151,14 @@ void mmu_write(uint16_t addr, uint8_t value)
         case 0xFF00: joyp_select = value & 0x30; return; /* only the row-
                         select bits are writable; column bits are inputs */
         case 0xFF01: serial_data = value; return;
-        case 0xFF02: return; /* serial link not implemented */
+        case 0xFF02:
+            /* No link cable is emulated, but writing 0x81 here means "send
+             * SB now" — and Blargg's test ROMs report their results this
+             * way. Echoing the byte to stderr turns the whole test suite
+             * into a headless pass/fail without any debugger. */
+            if (value == 0x81)
+                fputc(serial_data, stderr);
+            return;
         case 0xFF04: case 0xFF05: case 0xFF06: case 0xFF07:
             timer_write(addr, value); return;
         case 0xFF0F: if_reg = value & 0x1F; return;

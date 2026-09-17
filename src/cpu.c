@@ -54,6 +54,10 @@ static bool ime_pending;
 /* Set when the HALT bug triggers; makes the next fetch NOT advance PC. */
 static bool halt_bug;
 
+/* Interrupts pending at the END of the previous instruction; see the
+ * dispatch-grace comment above service_interrupts(). */
+static uint8_t pending_prev;
+
 void cpu_init(void)
 {
     /* Documented DMG register state at the moment the boot ROM jumps to
@@ -69,6 +73,7 @@ void cpu_init(void)
     ime = false;       /* boot ROM hands off with interrupts disabled */
     ime_pending = false;
     halt_bug = false;
+    pending_prev = 0;
 }
 
 /* ---- register-pair helpers -------------------------------------------- */
@@ -428,6 +433,17 @@ static int execute_cb(void)
 
 /* ---- interrupt dispatch ------------------------------------------------ */
 
+/* Interrupts that were already pending at the END of the previous
+ * instruction. A freshly raised interrupt therefore lets one more
+ * instruction execute before dispatch. This approximates a real-hardware
+ * behavior our instruction-granularity timing cannot otherwise express:
+ * memory reads happen in the MIDDLE of an instruction, so a loop polling
+ * LY can read the fresh value (say, 144) during the same instruction whose
+ * boundary the interrupt dispatches at, and after RETI the compare against
+ * that value succeeds. Without this one-instruction grace, a game that
+ * both enables the VBlank interrupt and polls for LY==144 (Adjustris does
+ * exactly this while switching the LCD off) deadlocks: the handler always
+ * swallows the only moment LY reads 144. */
 static int service_interrupts(void)
 {
     /* An interrupt is "pending" when the hardware requested it (IF) AND the
@@ -436,6 +452,9 @@ static int service_interrupts(void)
     uint8_t pending = mmu_read(0xFF0F) & mmu_read(0xFFFF) & 0x1F;
     if (pending)
         halted = false;
+    /* Only dispatch bits that were also pending last instruction (see
+     * pending_prev above); a write may also have cleared a bit since. */
+    pending &= pending_prev;
     if (!ime || !pending)
         return 0;
 
@@ -468,8 +487,13 @@ int cpu_step(void)
     if (icycles)
         return icycles;
 
-    if (halted)
-        return 4; /* clock keeps running while halted; burn one M-cycle */
+    if (halted) {
+        /* Clock keeps running while halted; burn one M-cycle. Keep the
+         * pending snapshot current so the wake-up dispatch isn't delayed
+         * by a stale value from before the HALT. */
+        pending_prev = mmu_read(0xFF0F) & mmu_read(0xFFFF) & 0x1F;
+        return 4;
+    }
 
     uint8_t op = fetch8();
     int cycles;
@@ -769,5 +793,8 @@ int cpu_step(void)
         ime = true;
         ime_pending = false;
     }
+    /* Remember what was pending as this instruction ended — the input to
+     * the one-instruction dispatch grace explained above pending_prev. */
+    pending_prev = mmu_read(0xFF0F) & mmu_read(0xFFFF) & 0x1F;
     return cycles;
 }

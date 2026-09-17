@@ -22,7 +22,7 @@ static size_t   rom_size;
 static uint8_t *ext_ram;      /* external (cartridge) RAM, if any */
 static size_t   ext_ram_size;
 
-static bool has_mbc1;
+static enum { MBC_NONE, MBC1, MBC3 } mbc;
 
 /* MBC1 register state. These live in the mapper chip, not in any RAM. */
 static uint8_t  ram_enabled;   /* 0x0A written to 0x0000-0x1FFF enables RAM */
@@ -57,8 +57,13 @@ bool cart_load(const char *path)
     /* Header byte 0x0147 identifies the mapper chip. */
     uint8_t type = rom[0x0147];
     switch (type) {
-    case 0x00:                     has_mbc1 = false; break; /* ROM only (Tetris) */
-    case 0x01: case 0x02: case 0x03: has_mbc1 = true; break; /* MBC1 variants */
+    case 0x00:                       mbc = MBC_NONE; break; /* ROM only (Tetris) */
+    case 0x01: case 0x02: case 0x03: mbc = MBC1;     break; /* MBC1 variants */
+    /* MBC3 without the real-time clock is a SIMPLER chip than MBC1: one
+     * 7-bit ROM bank register (so no bank_hi splitting) and a plain RAM
+     * bank register. RTC registers (types 0x0F/0x10) are not implemented;
+     * plain MBC3 carts (0x11-0x13) never touch them. */
+    case 0x11: case 0x12: case 0x13: mbc = MBC3;     break;
     default:
         fprintf(stderr, "unsupported cartridge type 0x%02X\n", type);
         return false;
@@ -94,13 +99,15 @@ void cart_free(void)
 /* Which 16KB ROM bank is currently mapped at 0x4000-0x7FFF? */
 static uint32_t switchable_bank(void)
 {
-    /* MBC1 quirk: the 5-bit bank register cannot hold 0. Writing 0 selects
-     * bank 1 (the hardware ORs in a 1 when the low 5 bits are all zero).
-     * This is why banks 0x20/0x40/0x60 are unreachable on real MBC1 carts. */
+    /* Neither MBC's bank register can select 0 (the fixed bank): writing 0
+     * selects bank 1 — the hardware ORs in a 1 when the register is zero.
+     * On MBC1 the check covers only the low 5 bits, which is why banks
+     * 0x20/0x40/0x60 are unreachable on real MBC1 carts. */
     uint32_t bank = rom_bank_lo ? rom_bank_lo : 1;
-    /* In mode 0 the 2-bit register supplies ROM bank bits 5-6, letting MBC1
-     * address up to 2MB. In mode 1 those bits go to RAM banking instead. */
-    if (banking_mode == 0)
+    /* MBC1 mode 0: the 2-bit register supplies ROM bank bits 5-6, letting
+     * MBC1 address up to 2MB. In mode 1 those bits go to RAM banking
+     * instead. (MBC3 has a full 7-bit register; nothing to splice.) */
+    if (mbc == MBC1 && banking_mode == 0)
         bank |= (uint32_t)bank_hi << 5;
     return bank;
 }
@@ -122,7 +129,7 @@ uint8_t cart_read_rom(uint16_t addr)
 
 void cart_write_rom(uint16_t addr, uint8_t value)
 {
-    if (!has_mbc1)
+    if (mbc == MBC_NONE)
         return; /* no mapper chip on the bus; the write hits nothing */
 
     switch (addr & 0x6000) {
@@ -133,12 +140,16 @@ void cart_write_rom(uint16_t addr, uint8_t value)
         ram_enabled = (value & 0x0F) == 0x0A;
         break;
     case 0x2000:
-        rom_bank_lo = value & 0x1F; /* only 5 bits are wired up */
+        /* ROM bank number: MBC1 wires up 5 bits, MBC3 wires 7. */
+        rom_bank_lo = value & (mbc == MBC3 ? 0x7F : 0x1F);
         break;
     case 0x4000:
+        /* MBC1: 2-bit dual-purpose register. MBC3: RAM bank number (values
+         * 0x08-0x0C would select RTC registers, which we don't have). */
         bank_hi = value & 0x03;
         break;
     case 0x6000:
+        /* MBC1: banking mode. MBC3: RTC latch (unimplemented). */
         banking_mode = value & 0x01;
         break;
     }
@@ -150,7 +161,8 @@ uint8_t cart_read_ram(uint16_t addr)
      * hardware effectively returns. */
     if (!ext_ram || !ram_enabled)
         return 0xFF;
-    uint32_t bank = (banking_mode == 1) ? bank_hi : 0;
+    /* MBC3's RAM bank register always applies; MBC1's only in mode 1. */
+    uint32_t bank = (mbc == MBC3 || banking_mode == 1) ? bank_hi : 0;
     return ext_ram[(bank * 0x2000u + (addr - 0xA000)) % ext_ram_size];
 }
 
@@ -158,6 +170,6 @@ void cart_write_ram(uint16_t addr, uint8_t value)
 {
     if (!ext_ram || !ram_enabled)
         return;
-    uint32_t bank = (banking_mode == 1) ? bank_hi : 0;
+    uint32_t bank = (mbc == MBC3 || banking_mode == 1) ? bank_hi : 0;
     ext_ram[(bank * 0x2000u + (addr - 0xA000)) % ext_ram_size] = value;
 }
