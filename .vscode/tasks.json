@@ -26,6 +26,14 @@
             "args": ["roms/adjustris.gb"],
             "dependsOn": "build gbemu (Windows/MSYS2)",
             "problemMatcher": []
+        },
+        {
+            "label": "run pokemon red",
+            "type": "shell",
+            "command": "./gbemu.exe",
+            "args": ["roms/pokemon_red.gb"],
+            "dependsOn": "build gbemu (Windows/MSYS2)",
+            "problemMatcher": []
         }
     ]
 }

@@ -30,6 +30,39 @@ static uint8_t  rom_bank_lo;   /* 5-bit ROM bank number (writes to 0x2000)  */
 static uint8_t  bank_hi;       /* 2-bit: upper ROM bits OR RAM bank number  */
 static uint8_t  banking_mode;  /* 0 = "ROM" mode, 1 = "RAM" mode            */
 
+/* Battery-backed saves. On a real cartridge a coin cell keeps the RAM chip
+ * powered while the console is off; we stand in for the battery with a
+ * .sav file next to the ROM, loaded at startup and written back both on
+ * exit and whenever the game disables RAM (games do that right after
+ * finishing a save, so flushing there survives even a crash later on). */
+static bool has_battery;
+static char save_path[1024];
+
+static void save_ram(void)
+{
+    if (!has_battery || !ext_ram)
+        return;
+    FILE *f = fopen(save_path, "wb");
+    if (!f) {
+        fprintf(stderr, "cannot write save: %s\n", save_path);
+        return;
+    }
+    fwrite(ext_ram, 1, ext_ram_size, f);
+    fclose(f);
+}
+
+static void load_ram(void)
+{
+    if (!has_battery || !ext_ram)
+        return;
+    FILE *f = fopen(save_path, "rb");
+    if (!f)
+        return; /* no save yet: fresh cartridge */
+    if (fread(ext_ram, 1, ext_ram_size, f) != ext_ram_size)
+        fprintf(stderr, "short save file, ignoring the rest: %s\n", save_path);
+    fclose(f);
+}
+
 bool cart_load(const char *path)
 {
     FILE *f = fopen(path, "rb");
@@ -81,6 +114,18 @@ bool cart_load(const char *path)
         if (!ext_ram) return false;
     }
 
+    /* Types with a battery among the mappers we support: MBC1+RAM+BATTERY
+     * and MBC3+RAM+BATTERY. Only those get a .sav file — saving RAM that
+     * loses power at shutdown would be lying about the hardware. */
+    has_battery = (type == 0x03 || type == 0x13) && ext_ram_size > 0;
+    if (has_battery) {
+        /* Save file sits next to the ROM: "<rom path>.sav". Appending
+         * (rather than swapping the extension) keeps it a one-liner and
+         * makes the pairing obvious in a directory listing. */
+        snprintf(save_path, sizeof save_path, "%s.sav", path);
+        load_ram();
+    }
+
     /* The title lives at 0x0134 in the header; print it as a sanity check. */
     char title[17] = {0};
     memcpy(title, &rom[0x0134], 16);
@@ -92,6 +137,7 @@ bool cart_load(const char *path)
 
 void cart_free(void)
 {
+    save_ram(); /* the "battery" keeps working until the very end */
     free(rom);
     free(ext_ram);
 }
@@ -133,12 +179,17 @@ void cart_write_rom(uint16_t addr, uint8_t value)
         return; /* no mapper chip on the bus; the write hits nothing */
 
     switch (addr & 0x6000) {
-    case 0x0000:
+    case 0x0000: {
         /* RAM enable. The magic value is "low nibble == 0xA"; anything else
          * disables. Games disable RAM when done writing saves to protect
-         * them from corruption at power-off. */
+         * them from corruption at power-off — which makes the disable edge
+         * the perfect moment to flush the .sav file to disk. */
+        uint8_t was_enabled = ram_enabled;
         ram_enabled = (value & 0x0F) == 0x0A;
+        if (was_enabled && !ram_enabled)
+            save_ram();
         break;
+    }
     case 0x2000:
         /* ROM bank number: MBC1 wires up 5 bits, MBC3 wires 7. */
         rom_bank_lo = value & (mbc == MBC3 ? 0x7F : 0x1F);

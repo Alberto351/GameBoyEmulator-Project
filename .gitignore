@@ -3,8 +3,17 @@
 gbemu
 gbemu.exe
 
-# Never commit ROMs or boot ROMs -- they are copyrighted material.
+# ROMs are ignored by default -- commercial dumps are copyrighted and must
+# never be committed. The whitelisted ones below are freely distributable
+# (test suites and open-source homebrew), so they may ship with the repo.
 *.gb
 *.gbc
 *.bin
 dmg_boot*
+!roms/cpu_instrs.gb
+!roms/dmg-acid2.gb
+!roms/adjustris.gb
+!roms/test.gb
+
+# Battery saves are personal progress, not source.
+*.sav
