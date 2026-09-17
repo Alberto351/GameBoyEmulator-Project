@@ -621,7 +621,13 @@ int cpu_step(void)
         break;
 
     case 0x76: /* HALT */
-        if (!ime && (mmu_read(0xFF0F) & mmu_read(0xFFFF) & 0x1F)) {
+        /* The ime_pending check matters: in the very common "EI ; HALT"
+         * sequence, EI's delayed enable lands exactly on the HALT — so the
+         * CPU halts normally and the pending interrupt wakes it, rather
+         * than tripping the bug below. Without this check, any game using
+         * EI ; HALT with an interrupt already flagged derails. */
+        if (!ime && !ime_pending &&
+            (mmu_read(0xFF0F) & mmu_read(0xFFFF) & 0x1F)) {
             /* THE HALT BUG. HALT with IME=0 and an interrupt already
              * pending doesn't halt — and a hardware race corrupts the next
              * fetch so PC fails to increment, executing the following byte
