@@ -13,7 +13,9 @@ It runs Tetris (and other ROM-only / MBC1 games) correctly.
 
 ## Building
 
-Requires SDL2 and a C99 compiler on Linux:
+### Linux (primary target)
+
+Requires SDL2 and a C99 compiler:
 
 ```
 sudo apt install libsdl2-dev   # Debian/Ubuntu
@@ -23,11 +25,33 @@ make
 The default build is a debug build (`-g -fsanitize=address`). Use
 `make BUILD=release` for an optimized binary.
 
+### Windows (MSYS2)
+
+Install SDL2 into the MSYS2 toolchain, then build directly with its gcc.
+(Don't use `make` here if Git for Windows is installed: Git ships its own
+broken `sdl2-config` that shadows the real one on PATH.)
+
+```
+pacman -S mingw-w64-x86_64-SDL2
+/c/msys64/mingw64/bin/gcc -std=c99 -Wall -Wextra -O2 src/*.c -o gbemu.exe $(/c/msys64/mingw64/bin/sdl2-config --cflags --libs)
+```
+
 ## Running
 
 ```
-./gbemu path/to/tetris.gb
+./gbemu path/to/game.gb        # ./gbemu.exe on Windows
 ```
+
+Put ROMs in `roms/` — the folder is gitignored so they never get committed.
+Good first things to run, all freely distributed:
+
+- [Blargg's `cpu_instrs.gb`](https://github.com/retrio/gb-test-roms) —
+  CPU test suite; this emulator passes all 11, and the results also print
+  to stderr through the emulated serial port
+- [`dmg-acid2.gb`](https://github.com/mattcurrie/dmg-acid2) — PPU rendering
+  test; compare against its reference image
+- [Adjustris](https://github.com/tbsp/Adjustris) — open-source homebrew
+  falling-block game (MBC3)
 
 No ROMs are included — bring your own legally obtained cartridge dump.
 No boot ROM is needed; the emulator initializes the CPU and I/O registers to
