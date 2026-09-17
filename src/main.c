@@ -37,8 +37,8 @@ static void update_input(void)
     if (k[SDL_SCANCODE_LEFT])   dpad |= 0x02;
     if (k[SDL_SCANCODE_UP])     dpad |= 0x04;
     if (k[SDL_SCANCODE_DOWN])   dpad |= 0x08;
-    if (k[SDL_SCANCODE_Z])      buttons |= 0x01; /* A */
-    if (k[SDL_SCANCODE_X])      buttons |= 0x02; /* B */
+    if (k[SDL_SCANCODE_A])      buttons |= 0x01; /* A */
+    if (k[SDL_SCANCODE_D])      buttons |= 0x02; /* B */
     if (k[SDL_SCANCODE_RSHIFT]) buttons |= 0x04; /* Select */
     if (k[SDL_SCANCODE_RETURN]) buttons |= 0x08; /* Start */
     mmu_set_input(dpad, buttons);
