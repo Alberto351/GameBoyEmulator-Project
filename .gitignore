@@ -1,0 +1,9 @@
+# Build artifacts
+*.o
+gbemu
+
+# Never commit ROMs or boot ROMs -- they are copyrighted material.
+*.gb
+*.gbc
+*.bin
+dmg_boot*
