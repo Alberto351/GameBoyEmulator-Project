@@ -33,12 +33,12 @@ static void update_input(void)
 {
     const Uint8 *k = SDL_GetKeyboardState(NULL);
     uint8_t dpad = 0, buttons = 0;
-    if (k[SDL_SCANCODE_RIGHT])  dpad |= 0x01;
-    if (k[SDL_SCANCODE_LEFT])   dpad |= 0x02;
-    if (k[SDL_SCANCODE_UP])     dpad |= 0x04;
-    if (k[SDL_SCANCODE_DOWN])   dpad |= 0x08;
-    if (k[SDL_SCANCODE_A])      buttons |= 0x01; /* A */
-    if (k[SDL_SCANCODE_D])      buttons |= 0x02; /* B */
+    if (k[SDL_SCANCODE_D])      dpad |= 0x01; /* Right */
+    if (k[SDL_SCANCODE_A])      dpad |= 0x02; /* Left  */
+    if (k[SDL_SCANCODE_W])      dpad |= 0x04; /* Up    */
+    if (k[SDL_SCANCODE_S])      dpad |= 0x08; /* Down  */
+    if (k[SDL_SCANCODE_SPACE])  buttons |= 0x01; /* A */
+    if (k[SDL_SCANCODE_LSHIFT]) buttons |= 0x02; /* B */
     if (k[SDL_SCANCODE_RSHIFT]) buttons |= 0x04; /* Select */
     if (k[SDL_SCANCODE_RETURN]) buttons |= 0x08; /* Start */
     mmu_set_input(dpad, buttons);

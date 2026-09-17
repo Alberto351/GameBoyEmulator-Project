@@ -90,14 +90,14 @@ the real boot ROM hands off.
 
 ## Controls
 
-| Key        | Game Boy button |
-|------------|-----------------|
-| Arrow keys | D-pad           |
-| Z          | A               |
-| X          | B               |
-| Enter      | Start           |
-| Right Shift| Select          |
-| Escape     | Quit            |
+| Key         | Game Boy button |
+|-------------|-----------------|
+| W/A/S/D     | D-pad           |
+| Space       | A               |
+| Left Shift  | B               |
+| Enter       | Start           |
+| Right Shift | Select          |
+| Escape      | Quit            |
 
 ## What's implemented
 
@@ -107,7 +107,9 @@ the real boot ROM hands off.
   modes 0–3 with correct timing
 - All five interrupts, including the HALT bug
 - DIV/TIMA timers with falling-edge increment behavior
-- MBC1 banking (Tetris itself is ROM-only, but real games need it)
+- MBC1 and MBC3 banking (Tetris itself is ROM-only, but real games need it)
+- Battery-backed saves: carts with a battery get a `.sav` file next to the
+  ROM, written on exit and whenever the game disables cartridge RAM
 - Joypad with its inverted-bit convention
 
 ## What's deliberately missing
