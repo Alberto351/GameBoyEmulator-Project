@@ -36,6 +36,36 @@ pacman -S mingw-w64-x86_64-SDL2
 /c/msys64/mingw64/bin/gcc -std=c99 -Wall -Wextra -O2 src/*.c -o gbemu.exe $(/c/msys64/mingw64/bin/sdl2-config --cflags --libs)
 ```
 
+## Day-to-day workflow (copy-paste)
+
+From a terminal in the repo root (VS Code terminal works fine):
+
+**Run a game:**
+
+```
+./gbemu.exe roms/adjustris.gb
+```
+
+**Rebuild after changing the source, then run** (Windows/MSYS2 — this is
+the same command the VS Code build task uses):
+
+```
+C:/msys64/mingw64/bin/gcc.exe -std=c99 -Wall -Wextra -O2 src/*.c -o gbemu.exe -IC:/msys64/mingw64/include -LC:/msys64/mingw64/lib -lmingw32 -lSDL2main -lSDL2 -Dmain=SDL_main && ./gbemu.exe roms/adjustris.gb
+```
+
+**Rerun the CPU test suite after a CPU change** (results print to the
+terminal via the emulated serial port — wait ~40 seconds for
+"Passed all tests"):
+
+```
+./gbemu.exe roms/cpu_instrs.gb
+```
+
+On Linux the equivalents are just `make` and `./gbemu roms/<game>.gb`.
+
+In VS Code, `.vscode/tasks.json` wires this up: **Ctrl+Shift+B** rebuilds,
+and *Terminal → Run Task → run adjustris* rebuilds and launches the game.
+
 ## Running
 
 ```

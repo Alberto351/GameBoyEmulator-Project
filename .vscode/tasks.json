@@ -1,0 +1,31 @@
+{
+    // VS Code tasks for this machine's MSYS2 toolchain.
+    // Ctrl+Shift+B = build. Terminal > Run Task... > "run adjustris" to play.
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build gbemu (Windows/MSYS2)",
+            "type": "shell",
+            "command": "C:/msys64/mingw64/bin/gcc.exe",
+            "args": [
+                "-std=c99", "-Wall", "-Wextra", "-O2",
+                "src/cpu.c", "src/mmu.c", "src/ppu.c",
+                "src/timer.c", "src/cartridge.c", "src/main.c",
+                "-o", "gbemu.exe",
+                "-IC:/msys64/mingw64/include",
+                "-LC:/msys64/mingw64/lib",
+                "-lmingw32", "-lSDL2main", "-lSDL2", "-Dmain=SDL_main"
+            ],
+            "group": { "kind": "build", "isDefault": true },
+            "problemMatcher": "$gcc"
+        },
+        {
+            "label": "run adjustris",
+            "type": "shell",
+            "command": "./gbemu.exe",
+            "args": ["roms/adjustris.gb"],
+            "dependsOn": "build gbemu (Windows/MSYS2)",
+            "problemMatcher": []
+        }
+    ]
+}
