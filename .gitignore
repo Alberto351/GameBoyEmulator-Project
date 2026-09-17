@@ -1,6 +1,7 @@
 # Build artifacts
 *.o
 gbemu
+gbemu.exe
 
 # Never commit ROMs or boot ROMs -- they are copyrighted material.
 *.gb
